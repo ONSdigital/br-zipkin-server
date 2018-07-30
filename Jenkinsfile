@@ -11,12 +11,14 @@ pipeline {
         timestamps()
     }
     agent any
-    stage('Download') {
-        steps {
-            script {
-                def server = Artifactory.server art-p-01
-                def downloadSpec = readFile 'registers-zipkin-server/resources/download.json'
-                server.download spec: downloadSpec
+    stages {
+        stage('Download') {
+            steps {
+                script {
+                    def server = Artifactory.server art-p-01
+                    def downloadSpec = readFile 'registers-zipkin-server/resources/download.json'
+                    server.download spec: downloadSpec
+                }
             }
         }
     }
