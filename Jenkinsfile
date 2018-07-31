@@ -101,13 +101,13 @@ pipeline {
                     steps {
                         healthCheck("${BI}", "${DEPLOY_TO}")
                     }
-                }
-                post {
-                    success {
-                        stageSuccess()
-                    }
-                    failure {
-                        stageFailure()
+                    post {
+                        success {
+                            stageSuccess()
+                        }
+                        failure {
+                            stageFailure()
+                        }
                     }
                 }
                 stage('SBR') {
@@ -115,13 +115,13 @@ pipeline {
                     steps {
                         healthCheck("${SBR}", "${DEPLOY_TO}")
                     }
-                }
-                post {
-                    success {
-                        stageSuccess()
-                    }
-                    failure {
-                        stageFailure()
+                    post {
+                        success {
+                            stageSuccess()
+                        }
+                        failure {
+                            stageFailure()
+                        }
                     }
                 }
             }
