@@ -67,7 +67,6 @@ pipeline {
                         CF_ROUTE = "${DEPLOY_TO}-${TEAM}-${MODULE_NAME}"
                     }
                     steps {
-                        milestone(1)
                         lock("${CF_ROUTE}") {
                             deploy()
                         }
@@ -80,7 +79,6 @@ pipeline {
                         CF_ROUTE = "${DEPLOY_TO}-${TEAM}-${MODULE_NAME}"
                     }
                     steps {
-                        milestone(1)
                         lock("${CF_ROUTE}") {
                             deploy()
                         }
