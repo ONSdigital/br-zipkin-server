@@ -1,4 +1,5 @@
 ---
-applications
+applications:
 - name: zipkin-server
   buildpack: java-buildpack
+  memory: 1G
