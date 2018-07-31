@@ -25,7 +25,7 @@ pipeline {
                     def downloadSpec = readFile 'resources/download.json'
                     server.download spec: downloadSpec
                 }
-                sh "cp target/zipkin-server*.jar ${MODULE_NAME}.jar"
+                sh "cp ${MODULE_NAME}/${MODULE_NAME}*.jar ${MODULE_NAME}.jar"
             }
             post {
                 success {
