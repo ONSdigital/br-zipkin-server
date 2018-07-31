@@ -22,7 +22,7 @@ pipeline {
                 checkout scm
                 script {
                     def server = Artifactory.server 'art-p-01'
-                    def buildInfo Artifactory.newBuildInfo()
+                    def buildInfo = Artifactory.newBuildInfo()
                     def downloadSpec = readFile 'resources/download.json'
                     server.download spec: downloadSpec, buildInfo: buildInfo
                 }
