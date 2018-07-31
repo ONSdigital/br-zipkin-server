@@ -3,7 +3,7 @@
     {
       "pattern": "libs-release/io/zipkin/java/zipkin-server/*/zipkin-server-*-exec.jar",
       "target": "zipkin-server/",
-      "flat": true,
+      "flat": "true",
       "build": "zipkin-server/2.9.4"
     }
   ]
