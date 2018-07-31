@@ -5,7 +5,7 @@ pipeline {
     environment {
         TEAM = "sbr"
         MODULE_NAME = "zipkin-server"
-        STAGE_NAME = "NONE";
+        FAILED_STAGE = "NONE"
     }
     options {
         skipDefaultCheckout()
@@ -41,12 +41,14 @@ pipeline {
         stage('Test'){
             agent any
             steps {
-                def exists = fileExists "${MODULE_NAME}.jar"
-                if (exists) {
-                    stageSuccess()
-                } else {
-                    stageFailure()
-                    error("Cannot find file ${MODULE_NAME}.jar")
+                script {
+                    def exists = fileExists "${MODULE_NAME}.jar"
+                    if (exists) {
+                        stageSuccess()
+                    } else {
+                        stageFailure()
+                        error("Cannot find file ${MODULE_NAME}.jar")
+                    }
                 }
             }
         }
@@ -75,11 +77,14 @@ pipeline {
             }
         }
 
-        stage('Test - DEV'){
+        stage('Test - DEV') {
             agent any
+            environment {
+                DEPLOY_TO = "dev"
+            }
             steps {
                 healthCheck()
-                }
+            }
             post {
                 success {
                     stageSuccess()
@@ -106,30 +111,31 @@ pipeline {
             sendNotifications currentBuild.result, "\$SBR_EMAIL_LIST", "${STAGE_NAME}"
         }
         failure {
-            colourText("warn","Process failed at: ${STAGE_NAME}")
-            sendNotifications currentBuild.result, "\$SBR_EMAIL_LIST", "${STAGE_NAME}"
+            colourText("warn","Process failed at: ${FAILED_STAGE}")
+            sendNotifications currentBuild.result, "\$SBR_EMAIL_LIST", "${FAILED_STAGE}"
         }
     }
 }
 
 def stageSuccess() {
-    colourText("info", "Stage: ${env.STAGE_NAME} successful!")
+    colourText("info", "Stage: ${STAGE_NAME} successful!")
 }
 
 def stageFailure() {
-    STAGE_NAME = ${env.STAGE_NAME}
-    colourText("warn", "Stage: ${env.STAGE_NAME} failed!")
+    FAILED_STAGE = ${env.STAGE_NAME}
+    colourText("warn", "Stage: ${STAGE_NAME} failed!")
 }
 
 
 def deploy() {
-    CF_SPACE = "${env.DEPLOY_TO}".capitalize()
+    CF_SPACE = "${DEPLOY_TO}".capitalize()
     CF_ORG = "${TEAM}".toUpperCase()
-    echo "Deploying app to ${env.DEPLOY_TO}"
-    deployToCloudFoundry("${TEAM}-${env.DEPLOY_TO}-cf", "${CF_ORG}", "${CF_SPACE}", "${env.CF_ROUTE}", "${MODULE_NAME}.jar", "${env.MANIFEST_DIR}/manifest.yml")
+    echo "Deploying app to ${DEPLOY_TO}"
+    deployToCloudFoundry("${TEAM}-${DEPLOY_TO}-cf", "${CF_ORG}", "${CF_SPACE}", "${CF_ROUTE}", "${MODULE_NAME}.jar", "${MANIFEST_DIR}/manifest.yml")
 }
 
 def healthCheck() {
-    httpRequest consoleLogResponseBody: true, contentType: 'APPLICATION_JSON', responseHandle: 'NONE', url: "http://${CF_ROUTE}.${CLOUD_FOUNDRY_ROUTE_SUFFIX}/health", validResponseCodes: '200', validResponseContent: '{"zipkin":{"status":"UP","details":{"InMemoryStorage":{"status":"UP"}}},"status":"UP"}'
+    CF_URL = "http://${DEPLOY_TO}-${TEAM}-${MODULE_NAME}.${CLOUD_FOUNDRY_ROUTE_SUFFIX}"
+    httpRequest consoleLogResponseBody: true, contentType: 'APPLICATION_JSON', responseHandle: 'NONE', url: "${CF_URL}/health", validResponseCodes: '200', validResponseContent: '{"zipkin":{"status":"UP","details":{"InMemoryStorage":{"status":"UP"}}},"status":"UP"}'
 
 }
