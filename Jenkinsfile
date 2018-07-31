@@ -6,9 +6,6 @@ pipeline {
         ORGANIZATION = "ons"
         TEAM = "sbr"
         MODULE_NAME = "zipkin-server"
-
-        SBT_HOME = tool name: 'sbt.13.13', type: 'org.jvnet.hudson.plugins.SbtPluginBuilder$SbtInstallation'
-        PATH = "${env.SBT_HOME}/bin:${env.PATH}"
     }
     options {
         skipDefaultCheckout()
@@ -28,6 +25,7 @@ pipeline {
                     def downloadSpec = readFile 'resources/download.json'
                     server.download spec: downloadSpec
                 }
+                sh "cp target/zipkin-server*.jar ${MODULE_NAME}.jar"
             }
             post {
                 success {
@@ -44,6 +42,7 @@ pipeline {
             environment {
                 DEPLOY_TO = "dev"
                 CF_ROUTE = "${env.DEPLOY_TO}-${MODULE_NAME}"
+                MANIFEST_DIR = "resources"
             }
             steps {
                 milestone(1)
@@ -89,5 +88,5 @@ def deploy () {
     CF_SPACE = "${env.DEPLOY_TO}".capitalize()
     CF_ORG = "${TEAM}".toUpperCase()
     echo "Deploying app to ${env.DEPLOY_TO}"
-    deployToCloudFoundry("${TEAM}-${env.DEPLOY_TO}-cf", "${CF_ORG}", "${CF_SPACE}", "${env.CF_ROUTE}", "${env.DEPLOY_TO}-${ORGANIZATION}-${MODULE_NAME}.zip", "gitlab/${env.DEPLOY_TO}/manifest.yml")
+    deployToCloudFoundry("${TEAM}-${env.DEPLOY_TO}-cf", "${CF_ORG}", "${CF_SPACE}", "${env.CF_ROUTE}", "${MODULE_NAME}.jar", "${env.MANIFEST_DIR}/manifest.yml")
 }
