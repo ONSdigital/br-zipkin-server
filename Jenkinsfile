@@ -65,13 +65,13 @@ pipeline {
                     steps {
                         deploy("${BI}", "${DEPLOY_TO}")
                     }
-                }
-                post {
-                    success {
-                        stageSuccess()
-                    }
-                    failure {
-                        stageFailure()
+                    post {
+                        success {
+                            stageSuccess()
+                        }
+                        failure {
+                            stageFailure()
+                        }
                     }
                 }
                 stage('SBR') {
@@ -79,13 +79,13 @@ pipeline {
                     steps {
                         deploy("${SBR}", "${DEPLOY_TO}")
                     }
-                }
-                post {
-                    success {
-                        stageSuccess()
-                    }
-                    failure {
-                        stageFailure()
+                    post {
+                        success {
+                            stageSuccess()
+                        }
+                        failure {
+                            stageFailure()
+                        }
                     }
                 }
             }
@@ -102,19 +102,27 @@ pipeline {
                         healthCheck("${BI}", "${DEPLOY_TO}")
                     }
                 }
+                post {
+                    success {
+                        stageSuccess()
+                    }
+                    failure {
+                        stageFailure()
+                    }
+                }
                 stage('SBR') {
                     agent any
                     steps {
                         healthCheck("${SBR}", "${DEPLOY_TO}")
                     }
                 }
-            }
-            post {
-                success {
-                    stageSuccess()
-                }
-                failure {
-                    stageFailure()
+                post {
+                    success {
+                        stageSuccess()
+                    }
+                    failure {
+                        stageFailure()
+                    }
                 }
             }
         }
@@ -166,5 +174,4 @@ def healthCheck(String org, String space) {
     CF_ENV = "${org}".uncapitalize()
     CF_URL = "http://${CF_ENV}-${CF_PRODUCT}-${MODULE_NAME}.${CLOUD_FOUNDRY_ROUTE_SUFFIX}"
     httpRequest consoleLogResponseBody: true, contentType: 'APPLICATION_JSON', responseHandle: 'NONE', url: "${CF_URL}/health", validResponseCodes: '200', validResponseContent: '{"zipkin":{"status":"UP","details":{"InMemoryStorage":{"status":"UP"}}},"status":"UP"}'
-
 }
