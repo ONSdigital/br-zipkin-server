@@ -3,9 +3,10 @@ library 'jenkins-pipeline-shared'
 
 pipeline {
     environment {
-        TEAM = "sbr"
         MODULE_NAME = "zipkin-server"
         FAILED_STAGE = "NONE"
+        BI = "bi"
+        SBR = "sbr"
     }
     options {
         skipDefaultCheckout()
@@ -54,17 +55,36 @@ pipeline {
         }
 
         stage('Deploy - DEV') {
-            agent any
-            //when{ expression{ isBranch("master") }}
             environment {
                 DEPLOY_TO = "dev"
-                CF_ROUTE = "${DEPLOY_TO}-${TEAM}-${MODULE_NAME}"
                 MANIFEST_DIR = "resources"
             }
-            steps {
-                milestone(1)
-                lock("${env.CF_ROUTE}") {
-                    deploy()
+            parallel {
+                stage('BI') {
+                    agent any
+                    environment {
+                        TEAM = ${BI}
+                        CF_ROUTE = "${DEPLOY_TO}-${TEAM}-${MODULE_NAME}"
+                    }
+                    steps {
+                        milestone(1)
+                        lock("${CF_ROUTE}") {
+                            deploy()
+                        }
+                    }
+                }
+                stage('SBR') {
+                    agent any
+                    environment {
+                        TEAM = ${SBR}
+                        CF_ROUTE = "${DEPLOY_TO}-${TEAM}-${MODULE_NAME}"
+                    }
+                    steps {
+                        milestone(1)
+                        lock("${CF_ROUTE}") {
+                            deploy()
+                        }
+                    }
                 }
             }
             post {
@@ -78,12 +98,28 @@ pipeline {
         }
 
         stage('Test - DEV') {
-            agent any
             environment {
                 DEPLOY_TO = "dev"
             }
-            steps {
-                healthCheck()
+            parallel {
+                stage('BI') {
+                    agent any
+                    environment {
+                        TEAM = ${BI}
+                    }
+                    steps {
+                        healthCheck()
+                    }
+                }
+                stage('SBR') {
+                    agent any
+                    environment {
+                        TEAM = ${SBR}
+                    }
+                    steps {
+                        healthCheck()
+                    }
+                }
             }
             post {
                 success {
@@ -130,7 +166,7 @@ def stageFailure() {
 def deploy() {
     CF_SPACE = "${DEPLOY_TO}".capitalize()
     CF_ORG = "${TEAM}".toUpperCase()
-    echo "Deploying app to ${DEPLOY_TO}"
+    echo "Deploying app to ${TEAM} ${DEPLOY_TO}"
     deployToCloudFoundry("${TEAM}-${DEPLOY_TO}-cf", "${CF_ORG}", "${CF_SPACE}", "${CF_ROUTE}", "${MODULE_NAME}.jar", "${MANIFEST_DIR}/manifest.yml")
 }
 
