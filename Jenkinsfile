@@ -23,11 +23,6 @@ pipeline {
             steps {
                 deleteDir()
                 checkout scm
-                stash name: 'app'
-            }
-        }
-        stage('Download') {
-            steps {
                 script {
                     def server = Artifactory.server 'art-p-01'
                     def downloadSpec = readFile 'resources/download.json'
