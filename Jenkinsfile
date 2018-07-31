@@ -63,7 +63,7 @@ pipeline {
                 stage('BI') {
                     agent any
                     environment {
-                        TEAM = ${BI}
+                        TEAM = "${BI}"
                         CF_ROUTE = "${DEPLOY_TO}-${TEAM}-${MODULE_NAME}"
                     }
                     steps {
@@ -76,7 +76,7 @@ pipeline {
                 stage('SBR') {
                     agent any
                     environment {
-                        TEAM = ${SBR}
+                        TEAM = "${SBR}"
                         CF_ROUTE = "${DEPLOY_TO}-${TEAM}-${MODULE_NAME}"
                     }
                     steps {
@@ -105,7 +105,7 @@ pipeline {
                 stage('BI') {
                     agent any
                     environment {
-                        TEAM = ${BI}
+                        TEAM = "${BI}"
                     }
                     steps {
                         healthCheck()
@@ -114,7 +114,7 @@ pipeline {
                 stage('SBR') {
                     agent any
                     environment {
-                        TEAM = ${SBR}
+                        TEAM = "${SBR}"
                     }
                     steps {
                         healthCheck()
