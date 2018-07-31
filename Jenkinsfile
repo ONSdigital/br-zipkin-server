@@ -62,6 +62,12 @@ pipeline {
                 }
             }
         }
+        stage('Test - DEV'){
+            agent any
+            steps {
+                httpRequest consoleLogResponseBody: true, contentType: 'APPLICATION_JSON', responseHandle: 'NONE', url: "http://${MODULE_NAME}.${CLOUD_FOUNDRY_ROUTE_SUFFIX}/health", validResponseCodes: '200', validResponseContent: '{"zipkin":{"status":"UP","details":{"InMemoryStorage":{"status":"UP"}}},"status":"UP"}'
+            }
+        }
     }
     post {
         always {
