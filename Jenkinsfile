@@ -62,35 +62,31 @@ pipeline {
             parallel {
                 stage('BI') {
                     agent any
-                    environment {
-                        TEAM = "${BI}"
-                        CF_ROUTE = "${DEPLOY_TO}-${TEAM}-${MODULE_NAME}"
-                    }
                     steps {
-                        lock("${CF_ROUTE}") {
-                            deploy()
-                        }
+                        deploy("${BI}", "${DEPLOY_TO}")
+                    }
+                }
+                post {
+                    success {
+                        stageSuccess()
+                    }
+                    failure {
+                        stageFailure()
                     }
                 }
                 stage('SBR') {
                     agent any
-                    environment {
-                        TEAM = "${SBR}"
-                        CF_ROUTE = "${DEPLOY_TO}-${TEAM}-${MODULE_NAME}"
-                    }
                     steps {
-                        lock("${CF_ROUTE}") {
-                            deploy()
-                        }
+                        deploy("${SBR}", "${DEPLOY_TO}")
                     }
                 }
-            }
-            post {
-                success {
-                    stageSuccess()
-                }
-                failure {
-                    stageFailure()
+                post {
+                    success {
+                        stageSuccess()
+                    }
+                    failure {
+                        stageFailure()
+                    }
                 }
             }
         }
@@ -102,20 +98,14 @@ pipeline {
             parallel {
                 stage('BI') {
                     agent any
-                    environment {
-                        TEAM = "${BI}"
-                    }
                     steps {
-                        healthCheck()
+                        healthCheck("${BI}", "${DEPLOY_TO}")
                     }
                 }
                 stage('SBR') {
                     agent any
-                    environment {
-                        TEAM = "${SBR}"
-                    }
                     steps {
-                        healthCheck()
+                        healthCheck("${SBR}", "${DEPLOY_TO}")
                     }
                 }
             }
@@ -161,15 +151,20 @@ def stageFailure() {
 }
 
 
-def deploy() {
-    CF_SPACE = "${DEPLOY_TO}".capitalize()
-    CF_ORG = "${TEAM}".toUpperCase()
-    echo "Deploying app to ${TEAM} ${DEPLOY_TO}"
-    deployToCloudFoundry("${TEAM}-${DEPLOY_TO}-cf", "${CF_ORG}", "${CF_SPACE}", "${CF_ROUTE}", "${MODULE_NAME}.jar", "${MANIFEST_DIR}/manifest.yml")
+def deploy(String org, String space) {
+    CF_PRODUCT = "${space}".uncapitalize()
+    CF_SPACE = "${space}".capitalize()
+    CF_ORG = "${org}".capitalize()
+    CF_ENV = "${org}".uncapitalize()
+    CF_ROUTE = "${CF_ENV}-${CF_PRODUCT}-${MODULE_NAME}"
+    echo "Deploying app to ${CF_ORG} ${CF_SPACE}"
+    deployToCloudFoundry("${CF_PRODUCT}-${CF_ENV}-cf", "${CF_ORG}", "${CF_SPACE}", "${CF_ROUTE}", "${MODULE_NAME}.jar", "${MANIFEST_DIR}/manifest.yml")
 }
 
-def healthCheck() {
-    CF_URL = "http://${DEPLOY_TO}-${TEAM}-${MODULE_NAME}.${CLOUD_FOUNDRY_ROUTE_SUFFIX}"
+def healthCheck(String org, String space) {
+    CF_PRODUCT = "${space}".uncapitalize()
+    CF_ENV = "${org}".uncapitalize()
+    CF_URL = "http://${CF_ENV}-${CF_PRODUCT}-${MODULE_NAME}.${CLOUD_FOUNDRY_ROUTE_SUFFIX}"
     httpRequest consoleLogResponseBody: true, contentType: 'APPLICATION_JSON', responseHandle: 'NONE', url: "${CF_URL}/health", validResponseCodes: '200', validResponseContent: '{"zipkin":{"status":"UP","details":{"InMemoryStorage":{"status":"UP"}}},"status":"UP"}'
 
 }
