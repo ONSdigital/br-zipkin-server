@@ -156,7 +156,7 @@ def stageSuccess() {
 }
 
 def stageFailure() {
-    FAILED_STAGE = ${env.STAGE_NAME}
+    FAILED_STAGE = ${STAGE_NAME}
     colourText("warn", "Stage: ${STAGE_NAME} failed!")
 }
 
