@@ -59,7 +59,7 @@ pipeline {
 
         stage('Deploy - DEV') {
             agent any
-            //when{ expression{ isBranch("master") }}
+            when{ expression{ isBranch("master") }}
             environment {
                 DEV_ROUTE = "${DEV}-${TEAM}-${MODULE_NAME}"
             }
@@ -81,6 +81,7 @@ pipeline {
 
         stage('Test - DEV') {
             agent any
+	    when{ expression{ isBranch("master") }}
             steps {
                 healthCheck("${DEV}-${TEAM}-${MODULE_NAME}")
             }
@@ -96,7 +97,7 @@ pipeline {
     
         stage('Deploy - TEST') {
             agent any
-            //when{ expression{ isBranch("master") }}
+            when{ expression{ isBranch("master") }}
             environment {
                 TEST_ROUTE = "${TEST}-${TEAM}-${MODULE_NAME}"
             }
@@ -118,6 +119,7 @@ pipeline {
 
         stage('Test - TEST') {
             agent any
+	    when{ expression{ isBranch("master") }}
             steps {
                 healthCheck("${TEST}-${TEAM}-${MODULE_NAME}")
             }
@@ -133,7 +135,7 @@ pipeline {
 
         stage('Deploy - PROD') {
             agent any
-            //when{ expression{ isBranch("master") }}
+            when{ expression{ isBranch("master") }}
             environment {
                 PROD_ROUTE = "${TEAM}-${MODULE_NAME}"
             }
@@ -155,6 +157,7 @@ pipeline {
 
         stage('Test - PROD') {
             agent any
+	    when{ expression{ isBranch("master") }}
             steps {
                 healthCheck("${TEAM}-${MODULE_NAME}")
             }
