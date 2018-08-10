@@ -3,10 +3,13 @@ library 'jenkins-pipeline-shared'
 
 pipeline {
     environment {
+        TEAM = "sbr"
         MODULE_NAME = "zipkin-server"
+        MANIFEST_DIR = "resources"
+        DEV = "dev"
+        TEST = "test"
+        PROD = "beta"
         FAILED_STAGE = "NONE"
-        BI = "bi"
-        SBR = "sbr"
     }
     options {
         skipDefaultCheckout()
@@ -55,78 +58,117 @@ pipeline {
         }
 
         stage('Deploy - DEV') {
+            agent any
+            //when{ expression{ isBranch("master") }}
             environment {
-                DEPLOY_TO = "dev"
-                MANIFEST_DIR = "resources"
+                DEV_ROUTE = "${DEV}-${TEAM}-${MODULE_NAME}"
             }
-            parallel {
-                stage('BI') {
-                    agent any
-                    steps {
-                        deploy("${BI}", "${DEPLOY_TO}")
-                    }
-                    post {
-                        success {
-                            stageSuccess()
-                        }
-                        failure {
-                            stageFailure()
-                        }
-                    }
+            steps {
+                milestone(1)
+                lock("${env.DEV_ROUTE}") {
+                    deploy("${TEAM}", "${DEV}", "${env.DEV_ROUTE}")
                 }
-                stage('SBR') {
-                    agent any
-                    steps {
-                        deploy("${SBR}", "${DEPLOY_TO}")
-                    }
-                    post {
-                        success {
-                            stageSuccess()
-                        }
-                        failure {
-                            stageFailure()
-                        }
-                    }
+            }
+            post {
+                success {
+                    stageSuccess()
+                }
+                failure {
+                    stageFailure()
                 }
             }
         }
 
         stage('Test - DEV') {
-            environment {
-                DEPLOY_TO = "dev"
+            agent any
+            steps {
+                healthCheck("${DEV}-${TEAM}-${MODULE_NAME}")
             }
-            parallel {
-                stage('BI') {
-                    agent any
-                    steps {
-                        healthCheck("${BI}", "${DEPLOY_TO}")
-                    }
-                    post {
-                        success {
-                            stageSuccess()
-                        }
-                        failure {
-                            stageFailure()
-                        }
-                    }
+            post {
+                success {
+                    stageSuccess()
                 }
-                stage('SBR') {
-                    agent any
-                    steps {
-                        healthCheck("${SBR}", "${DEPLOY_TO}")
-                    }
-                    post {
-                        success {
-                            stageSuccess()
-                        }
-                        failure {
-                            stageFailure()
-                        }
-                    }
+                failure {
+                    stageFailure()
+                }
+            }
+        }
+    
+        stage('Deploy - TEST') {
+            agent any
+            //when{ expression{ isBranch("master") }}
+            environment {
+                TEST_ROUTE = "${TEST}-${TEAM}-${MODULE_NAME}"
+            }
+            steps {
+                milestone(2)
+                lock("${env.TEST_ROUTE}") {
+					deploy("${TEAM}", "${TEST}", "${env.TEST_ROUTE}")
+                }
+            }
+            post {
+                success {
+                    stageSuccess()
+                }
+                failure {
+                    stageFailure()
+                }
+            }
+        }
+
+        stage('Test - TEST') {
+            agent any
+            steps {
+                healthCheck("${TEST}-${TEAM}-${MODULE_NAME}")
+            }
+            post {
+                success {
+                    stageSuccess()
+                }
+                failure {
+                    stageFailure()
+                }
+            }
+        }
+
+        stage('Deploy - PROD') {
+            agent any
+            //when{ expression{ isBranch("master") }}
+            environment {
+                PROD_ROUTE = "${TEAM}-${MODULE_NAME}"
+            }
+            steps {
+                milestone(3)
+                lock("${env.PROD_ROUTE}") {
+                    deploy("${TEAM}", "${PROD}", "${PROD_ROUTE}")
+                }
+            }
+            post {
+                success {
+                    stageSuccess()
+                }
+                failure {
+                    stageFailure()
+                }
+            }
+        }
+
+        stage('Test - PROD') {
+            agent any
+            steps {
+                healthCheck("${TEAM}-${MODULE_NAME}")
+            }
+            post {
+                success {
+                    stageSuccess()
+                }
+                failure {
+                    stageFailure()
                 }
             }
         }
     }
+
     post {
         always {
             script {
@@ -154,24 +196,16 @@ def stageSuccess() {
 }
 
 def stageFailure() {
-    FAILED_STAGE = ${STAGE_NAME}
+    FAILED_STAGE = "${env.STAGE_NAME}"
     colourText("warn", "Stage: ${STAGE_NAME} failed!")
 }
 
-
-def deploy(String org, String space) {
-    CF_PRODUCT = "${space}".uncapitalize()
-    CF_SPACE = "${space}".capitalize()
-    CF_ORG = "${org}".capitalize()
-    CF_ENV = "${org}".uncapitalize()
-    CF_ROUTE = "${CF_ENV}-${CF_PRODUCT}-${MODULE_NAME}"
-    echo "Deploying app to ${CF_ORG} ${CF_SPACE}"
-    deployToCloudFoundry("${CF_PRODUCT}-${CF_ENV}-cf", "${CF_ORG}", "${CF_SPACE}", "${CF_ROUTE}", "${MODULE_NAME}.jar", "${MANIFEST_DIR}/manifest.yml")
+def deploy(String org, String space, String route) {
+    echo "Deploying app to ${space}"
+    deployToCloudFoundry("${org}-${space}-cf", "${org}".capitalize(), "${space}".capitalize(), "${route}", "${MODULE_NAME}.jar", "${MANIFEST_DIR}/manifest.yml")
 }
 
-def healthCheck(String org, String space) {
-    CF_PRODUCT = "${space}".uncapitalize()
-    CF_ENV = "${org}".uncapitalize()
-    CF_URL = "http://${CF_ENV}-${CF_PRODUCT}-${MODULE_NAME}.${CLOUD_FOUNDRY_ROUTE_SUFFIX}"
+def healthCheck(String route) {
+    CF_URL = "http://${route}.${CLOUD_FOUNDRY_ROUTE_SUFFIX}"
     httpRequest consoleLogResponseBody: true, contentType: 'APPLICATION_JSON', responseHandle: 'NONE', url: "${CF_URL}/health", validResponseCodes: '200', validResponseContent: '{"zipkin":{"status":"UP","details":{"InMemoryStorage":{"status":"UP"}}},"status":"UP"}'
 }
