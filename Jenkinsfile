@@ -11,6 +11,7 @@ pipeline {
     environment {
         TEAM = "br"
         MODULE_NAME = "zipkin-server"
+	SVC_NAME = "${TEAM}-${MODULE_NAME}"
         MANIFEST_DIR = "resources"
         DEV = "dev"
         TEST = "test"
