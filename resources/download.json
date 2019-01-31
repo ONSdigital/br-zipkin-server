@@ -1,0 +1,9 @@
+{
+  "files": [
+    {
+      "pattern": "libs-release/io/zipkin/java/zipkin-server/2.9.4/zipkin-server-2.9.4-exec.jar",
+      "target": "zipkin-server/",
+      "flat": "true"
+    }
+  ]
+}
