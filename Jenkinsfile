@@ -1,9 +1,15 @@
 #!groovy
 library 'jenkins-pipeline-shared'
 
+// Global scope required for multi-stage persistence
+def artServer = Artifactory.server 'art-p-01'
+def buildInfo = Artifactory.newBuildInfo()
+def agentMavenVersion = 'maven_3.5.4'
+def downloadSpec
+
 pipeline {
     environment {
-        TEAM = "sbr"
+        TEAM = "br"
         MODULE_NAME = "zipkin-server"
         MANIFEST_DIR = "resources"
         DEV = "dev"
@@ -17,34 +23,34 @@ pipeline {
         timeout(time: 30, unit: 'MINUTES')
         timestamps()
     }
-    agent any
+    agent { label 'download.jenkins.slave' }
     stages {
-        stage('Checkout') {
-            agent any
+	stage('Checkout') {
+            agent { label 'download.jenkins.slave' }
             steps {
-                deleteDir()
                 checkout scm
                 script {
-                    def server = Artifactory.server 'art-p-01'
-                    def buildInfo = Artifactory.newBuildInfo()
-                    def downloadSpec = readFile 'resources/download.json'
-                    server.download spec: downloadSpec, buildInfo: buildInfo
+                    buildInfo.name = "${SVC_NAME}"
+                    buildInfo.number = "${BUILD_NUMBER}"
+                    buildInfo.env.collect()
                 }
-                sh "cp ${MODULE_NAME}/${MODULE_NAME}*.jar ${MODULE_NAME}.jar"
-            }
-            post {
-                success {
-                    stageSuccess()
+                colourText("info", "BuildInfo: ${buildInfo.name}-${buildInfo.number}")
+                dir('test-data') {
+                    git branch: 'master', url: 'https://github.com/ONSdigital/br-zipkin-server.git'
                 }
-                failure {
-                    stageFailure()
-                }
+                stash name: 'Checkout'
             }
         }
 
-        stage('Test'){
-            agent any
+        stage('Validate'){
+            agent { label "build.${agentMavenVersion}" }
             steps {
+		unstash name: 'Checkout'
+                script {
+                    downloadSpec = readFile 'resources/download.json'
+                    server.download spec: downloadSpec, buildInfo: buildInfo
+                }
+                sh "cp ${MODULE_NAME}/${MODULE_NAME}*.jar ${MODULE_NAME}.jar"
                 script {
                     def exists = fileExists "${MODULE_NAME}.jar"
                     if (exists) {
@@ -58,13 +64,17 @@ pipeline {
         }
 
         stage('Deploy - DEV') {
-            agent any
+            agent { label 'deploy.cf' }
             when { branch 'master' }
             environment {
                 DEV_ROUTE = "${DEV}-${TEAM}-${MODULE_NAME}"
             }
             steps {
-                milestone(1)
+		milestone(1)
+		script {
+                    server.download spec: downloadSpec, buildInfo: buildInfo
+                }
+                sh "cp ${MODULE_NAME}/${MODULE_NAME}*.jar ${MODULE_NAME}.jar"
                 lock("${env.DEV_ROUTE}") {
                     deploy("${TEAM}", "${DEV}", "${env.DEV_ROUTE}")
                 }
@@ -80,7 +90,7 @@ pipeline {
         }
 
         stage('Test - DEV') {
-            agent any
+            agent { label 'deploy.cf' }
 	        when { branch 'master' }
             steps {
                 healthCheck("${DEV}-${TEAM}-${MODULE_NAME}")
@@ -96,15 +106,19 @@ pipeline {
         }
     
         stage('Deploy - TEST') {
-            agent any
+            agent { label 'deploy.cf' }
             when { branch 'master' }
             environment {
                 TEST_ROUTE = "${TEST}-${TEAM}-${MODULE_NAME}"
             }
             steps {
                 milestone(2)
+		script {
+                    server.download spec: downloadSpec, buildInfo: buildInfo
+                }
+                sh "cp ${MODULE_NAME}/${MODULE_NAME}*.jar ${MODULE_NAME}.jar"
                 lock("${env.TEST_ROUTE}") {
-					deploy("${TEAM}", "${TEST}", "${env.TEST_ROUTE}")
+		    deploy("${TEAM}", "${TEST}", "${env.TEST_ROUTE}")
                 }
             }
             post {
@@ -118,7 +132,7 @@ pipeline {
         }
 
         stage('Test - TEST') {
-            agent any
+            agent { label 'deploy.cf' }
     	    when { branch 'master' }
             steps {
                 healthCheck("${TEST}-${TEAM}-${MODULE_NAME}")
@@ -134,13 +148,17 @@ pipeline {
         }
 
         stage('Deploy - PROD') {
-            agent any
+            agent { label 'deploy.cf' }
             when { branch 'master' }
             environment {
                 PROD_ROUTE = "${TEAM}-${MODULE_NAME}"
             }
             steps {
                 milestone(3)
+                script {
+                    server.download spec: downloadSpec, buildInfo: buildInfo
+                }
+                sh "cp ${MODULE_NAME}/${MODULE_NAME}*.jar ${MODULE_NAME}.jar"
                 lock("${env.PROD_ROUTE}") {
                     deploy("${TEAM}", "${PROD}", "${PROD_ROUTE}")
                 }
@@ -156,7 +174,7 @@ pipeline {
         }
 
         stage('Test - PROD') {
-            agent any
+            agent { label 'deploy.cf' }
     	    when { branch 'master' }
             steps {
                 healthCheck("${TEAM}-${MODULE_NAME}")
@@ -173,23 +191,26 @@ pipeline {
     }
 
     post {
-        always {
-            script {
-                colourText("info", 'Post steps initiated')
-                deleteDir()
-            }
-        }
         success {
             colourText("success", "All stages complete. Build was successful.")
-            sendNotifications currentBuild.result, "\$SBR_EMAIL_LIST"
+            slackSend(
+                    color: "good",
+                    message: "${env.JOB_NAME} success: ${env.RUN_DISPLAY_URL}"
+            )
         }
         unstable {
             colourText("warn", "Something went wrong, build finished with result ${currentResult}. This may be caused by failed tests, code violation or in some cases unexpected interrupt.")
-            sendNotifications currentBuild.result, "\$SBR_EMAIL_LIST", "${STAGE_NAME}"
+            slackSend(
+                    color: "warning",
+                    message: "${env.JOB_NAME} unstable: ${env.RUN_DISPLAY_URL}"
+            )
         }
         failure {
-            colourText("warn","Process failed at: ${FAILED_STAGE}")
-            sendNotifications currentBuild.result, "\$SBR_EMAIL_LIST", "${FAILED_STAGE}"
+            colourText("warn", "Process failed at: ${env.NODE_STAGE}")
+            slackSend(
+                    color: "danger",
+                    message: "${env.JOB_NAME} failed at ${env.STAGE_NAME}: ${env.RUN_DISPLAY_URL}"
+            )
         }
     }
 }
